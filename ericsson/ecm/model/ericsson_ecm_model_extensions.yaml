@@ -1,0 +1,122 @@
+
+node_types:
+  ericsson.tosca.nodes.nfv.VNF:
+    derived_from: tosca.nodes.Root
+    properties:
+      name:
+        type: string
+        required: true
+      type:
+        type: string
+        required: false
+      vendor:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+      vnfd_id:
+        type: string
+        required: true
+      vnfd_format:
+        type: string
+        required: true
+        constraints:
+          - valid_values: [ hot, ovf ]
+      vim_zone_name:
+        type: string
+        required: true
+
+    attributes:
+      nso_payload_data:
+        type: string
+        default: "dummy"
+
+    capabilities:
+      virtual_binding:
+        description: >-
+          Defines ability of VirtualBindable.
+        type: tosca.capabilities.nfv.VirtualBindable
+
+  ericsson.tosca.nodes.nfv.VNF.HOT:
+    derived_from: ericsson.tosca.nodes.nfv.VNF
+    properties:
+      vnfd_format:
+        type: string
+        required: true
+        default: "hot"
+      hot_package_parameters:
+        type: map
+        entry_schema:
+            type: string
+        required: false
+        description: input parameters and values
+      hot_package_config_files:
+        type: map
+        entry_schema:
+            type: string
+        required: false
+        description: Map of file name and the Base64 encoded file content
+
+    interfaces:
+      Standard:
+        type: tosca.interfaces.node.lifecycle.Standard
+        create:
+          implementation:
+            primary: ecm > ericsson.ecm.plugins.vnf_hot_plugin.translate
+
+      Custom:
+        type: ericsson.tosca.interfaces.node.lifecycle.Custom
+        deploy:
+          implementation:
+            primary: ecm > ericsson.ecm.plugins.vnf_hot_plugin.deploy
+
+
+  ericsson.tosca.nodes.nfv.VnfCpd:
+    derived_from: tosca.nodes.nfv.Cpd
+    requirements:
+      - virtual_binding:
+          capability: tosca.capabilities.nfv.VirtualBindable
+          relationship: tosca.relationships.nfv.VirtualBindsTo
+          node: ericsson.tosca.nodes.nfv.VNF
+          occurrences: [0, 1]
+      - virtual_link:
+          capability: tosca.capabilities.network.Linkable
+          relationship: tosca.relationships.network.LinksTo
+          node: tosca.nodes.nfv.VnfVirtualLinkDesc
+          occurrences: [0, 1]
+    interfaces:
+      Standard:
+        type: tosca.interfaces.node.lifecycle.Standard
+        create:
+          implementation:
+            primary: ecm > ericsson.ecm.plugins.cp_plugin.translate
+
+  ericsson.tosca.nodes.nfv.VirtualLinkDesc:
+    derived_from: tosca.nodes.nfv.VnfVirtualLinkDesc
+    capabilities:
+      virtual_linkable:
+        type: tosca.capabilities.network.Linkable
+    interfaces:
+      Standard:
+        type: tosca.interfaces.node.lifecycle.Standard
+        create:
+          implementation:
+            primary: ecm > ericsson.ecm.plugins.vl_plugin.translate
+
+policy_types:
+  ericsson.workflows.DeployWorkflow:
+     description: >-
+       Deploy workflow
+     derived_from: aria.Workflow
+     properties:
+       implementation:
+         type: string
+         default: ericsson.ecm.workflows.deploy_workflow.deploy
+
+interface_types:
+  ericsson.tosca.interfaces.node.lifecycle.Custom:
+    derived_from: tosca.interfaces.Root
+    deploy:
+      description: >-
+        Deploy lifecycle operation.
